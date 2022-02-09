@@ -1,7 +1,10 @@
-from pylsl import StreamInlet, resolve_byprop
-from time import time
+import random
 
-def record(
+from pylsl import StreamInlet, resolve_byprop, StreamInfo, StreamOutlet, local_clock
+from time import time
+from random import random as rand
+
+def recordAndClassify(
         duration: int,
         dejitter=False,
         continuous: bool = True,
@@ -11,12 +14,15 @@ def record(
     LSL_SCAN_TIMEOUT = 5
     LSL_BUFFER = 360
 
-    # initialization
+    OUT_STREAMNAME = "LE_BCI_DL_Output"
+    OUT_STREAMTYPE = "DL"
+    OUT_STREAMID = "LE_BCI_DL_Output"
+
+    # Initialization
     chunk_length = LSL_EEG_CHUNK
 
+    # A. BrainVision Stream
     print("Looking for stream...")
-    # CHANGE NAME TO BCI STREAM
-    # streams = resolve_byprop('name', 'Unity.LEBCI_Stream', timeout=LSL_SCAN_TIMEOUT)
     streams = resolve_byprop('name', 'BrainVision RDA', timeout=LSL_SCAN_TIMEOUT)
 
     if len(streams) == 0:
@@ -27,6 +33,7 @@ def record(
     inlet = StreamInlet(streams[0], max_chunklen=chunk_length)
     # eeg_time_correction = inlet.time_correction()
 
+    # B. Unity Marker Stream
     print("Looking for a Markers stream...")
     marker_streams = resolve_byprop(
         'name', 'Unity.LEBCI_Stream', timeout=LSL_SCAN_TIMEOUT)
@@ -39,16 +46,20 @@ def record(
         print("Can't find Markers stream.")
         return
 
-    info = inlet.info()
-    description = info.desc()
+    in_info = inlet.info()
+    description = in_info.desc()
 
-    Nchan = info.channel_count()
+    Nchan = in_info.channel_count()
 
     ch = description.child('channels').first_child()
     ch_names = [ch.child_value('label')]
     for i in range(1, Nchan):
         ch = ch.next_sibling()
         ch_names.append(ch.child_value('label'))
+
+    # C. Classification Output Stream
+    out_info = StreamInfo(OUT_STREAMNAME, OUT_STREAMTYPE, 1, 0.0, 'float32', OUT_STREAMID)
+    outlet = StreamOutlet(out_info)
 
     res = []
     timestamps = []
@@ -109,6 +120,11 @@ def record(
                         inBCI = False
                         print(currentSample)
 
+                        res = classify(currentSample)
+                        print("RESULT = "+str(res))
+
+                        outlet.push_sample(res)
+
             # # Save every 5s
             # if continuous and (last_written_timestamp is None or last_written_timestamp + 5 < timestamps[-1]):
             #     _save(
@@ -143,6 +159,11 @@ def record(
     #
     # print("Done - wrote file: {}".format(filename))
 
+def classify(currentSample):
+
+    res = random.choice([0, 1])
+    return res
+
 
 if __name__ == "__main__":
-    record(100)
+    recordAndClassify(1000)
