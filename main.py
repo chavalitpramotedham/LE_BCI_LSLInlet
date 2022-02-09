@@ -120,7 +120,7 @@ def recordAndClassify(
                         inBCI = False
                         print(currentSample)
 
-                        res = classify(currentSample)
+                        res = [classify(currentSample)]
                         print("RESULT = "+str(res))
 
                         outlet.push_sample(res)
